@@ -21,35 +21,37 @@ import argparse
 from colmap_read_model import *
 import shutil
 import cv2
+import pdb
 
 def mkdir_s(dn):
     if not os.path.exists(dn):
         os.mkdir(dn)
 
-def computeCropFactor(cx, cy):
+def computeCropFactor(cx, cy, crop_center_x, crop_center_y):
   crop_h = 756
   crop_w = 1008  
-  center_h = cy #define crop center, this should be shared across all the images
-  center_w = cx #define crop center this should be shared across all the images
-  hh = center_h - (crop_h // 2)
-  ww = center_w - (crop_w // 2)  
-  cx_cropped = cx - ww
-  cy_cropped = cy - hh
-  return crop_h, crop_w, cx_cropped, cy_cropped
+  
+  # lower left coords
+  ll_x = crop_center_x - crop_w // 2
+  ll_y = crop_center_y - crop_h // 2
+
+  # pdb.set_trace()
+
+  
+  return crop_h, crop_w, cx - ll_x, cy - ll_y
   
   
-def runCrop(imagePath, cx, cy):
+def runCrop(imagePath, crop_center_x, crop_center_y):
     image = cv2.imread(imagePath)
     crop_h = 756
     crop_w = 1008
 
-    center_h = cy #define crop center, this should be shared across all the images
-    center_w = cx #define crop center this should be shared across all the images
-    hh = int(center_h - (crop_h // 2))
-    ww = int(center_w - (crop_w // 2))
+    hh = int(crop_center_y - (crop_h // 2))
+    ww = int(crop_center_x - (crop_w // 2))
+    # pdb.set_trace()
     image = image[ hh:(hh + crop_h), ww:(ww + crop_w), :]
 
-    folder = os.path.dirname(imagePath) + '_crop'
+    folder = os.path.dirname(os.path.dirname(imagePath)) + '/images'
     os.makedirs(folder, exist_ok=True)
     
     # name = os.path.splitext(imagePath)[0] + '_crop'
@@ -165,14 +167,11 @@ def runner(dataset):
 
 
 
-def load_colmap_data(realdir):
+def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
   '''
     copy from Local light field fusion
     https://github.com/Fyusion/LLFF/blob/master/llff/poses/pose_utils.py
 
-    make a little change in principle points
-    LLFF assumes cx, cy to locate at the center of image (H/2, W/2)
-    Whereas we get it from colmap prediction
   '''
   camerasfile = os.path.join(realdir, 'sparse/0/cameras.bin')
   camdata = read_cameras_binary(camerasfile)
@@ -188,7 +187,16 @@ def load_colmap_data(realdir):
   h_s, w_s, fx_s, fy_s, cx_s, cy_s = computeScaleFactor(h, w, fx, fy, cx, cy)
   hwf_cxcy_s = np.array([h_s, w_s, fx_s, fy_s, cx_s, cy_s]).reshape([6,1])
 
-  h, w, cx, cy = computeCropFactor(cx, cy)
+  if crop_center_x is None:
+    crop_center_x = w // 2
+  if crop_center_y is None:
+    crop_center_y = h // 2
+
+  with open(os.path.join(realdir, 'crop_center.txt'), 'w') as f:
+    f.write(f'{crop_center_x}, {crop_center_y}')
+
+
+  h, w, cx, cy = computeCropFactor(cx, cy, crop_center_x, crop_center_y)
   hwf_cxcy = np.array([h, w, fx, fy, cx, cy]).reshape([6,1])
 
 
@@ -206,14 +214,15 @@ def load_colmap_data(realdir):
   file_out = open(os.path.join(realdir, 'cameras.ply'), "w")
   writeHeaderPLY(file_out, len(imdata))
   
-  mkdir_s(os.path.join(realdir, 'images_s/'))
+  # mkdir_s(os.path.join(realdir, 'images_s/'))
   
   for k in imdata:
     im = imdata[k]
     
-    image_path = os.path.join(realdir, 'rgb/1x/' + im.name)
-    runCrop(image_path, cx, cy)
-    runScale(image_path, cx, cy)
+    image_path = os.path.join(realdir, 'images_raw', im.name)
+    # pdb.set_trace()
+    runCrop(image_path, crop_center_x, crop_center_y)
+    # runScale(image_path, cx, cy)
     R = im.qvec2rotmat()
     t = im.tvec.reshape([3,1])
     file_out.write(str(float(t[0])) + " " + str(float(t[1])) + " " + str(float(t[2])) + " " + "\n")
@@ -318,4 +327,28 @@ def colmapGenPoses(dpath):
 
     
 if __name__ == '__main__':
-  colmapGenPoses(sys.argv[1])
+  # colmapGenPoses(sys.argv[1])
+
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--data_path', type=str)
+  parser.add_argument('--crop_center_x',
+                        type=int,
+                        default=None)
+  parser.add_argument('--crop_center_y',
+                        type=int,
+                        default=None)
+
+  args = parser.parse_args()
+
+  
+  if need_run_coolmap(args.data_path):
+    raise Exception("No colmap result found, please run colmap first")
+
+  #post colmap
+  poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s = load_colmap_data(args.data_path, args.crop_center_x, args.crop_center_y)
+  print(hwf_cxcy)
+  save_poses(args.data_path, poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s)
+  print( 'Done with imgs2poses' )
+
+
+  # python colmap_runner.py --data_path /home/tw554/nerf_bechmark_data/data/geopards_long --crop_center_y 702
