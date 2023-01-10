@@ -8,6 +8,7 @@ from util.clean_video import processOneVideo as process_vid
 import json
 import matplotlib.pyplot as plt
 import argparse
+import cv2
 
 def cmd(s):
   print(s)
@@ -36,7 +37,6 @@ parser.add_argument('--n_test',
 args = parser.parse_args()
 
 
-vid_dir = './data/raw_video'
 root_dir = Path(args.data_path, args.capture_name)
 rgb_raw_dir = root_dir / 'images_raw'
 
@@ -68,7 +68,53 @@ for train_name in train_vid_names:
   train_img_names += list(rgb_raw_dir.glob(f'{train_name}_*.jpg'))
 train_img_names = sorted(train_img_names)
 
-process_vid(str(scene_vid_path/f'{args.test_vid_name}.MP4'), str(rgb_raw_dir), sampling=-1, iTarget=args.n_test+30)
+target_num_frames = args.n_test + 30
+video_path = str(scene_vid_path/f'{args.test_vid_name}.MP4')
+cap = cv2.VideoCapture(video_path)
+# input_fps = cap.get(cv2.CAP_PROP_FPS)
+num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+if num_frames < target_num_frames:
+  raise RuntimeError(
+      'The video is too short and has fewer frames than the target.')
+
+
+# fps = int(target_num_frames / num_frames * input_fps)
+sampling = num_frames // target_num_frames
+print(f"Auto-computed sampling = {sampling}")
+
+process_vid(str(scene_vid_path/f'{args.test_vid_name}.MP4'), str(rgb_raw_dir), sampling=sampling, iTarget=-1)
+
+
+# # @markdown Adjust `max_scale` to something smaller for faster processing.
+# max_scale = 1.0  # @param {type:'number'}
+# # @markdown A smaller FPS will be much faster for bundle adjustment, but at the expensive of a lower sampling density for training. For the paper we used ~15 fps but we default to something lower here to get you started faster.
+# # @markdown If given an fps of -1 we will try to auto-compute it.
+# fps = -1  # @param {type:'number'}
+# target_num_frames = 100 # @param {type: 'number'}
+
+# cap = cv2.VideoCapture(video_path)
+# input_fps = cap.get(cv2.CAP_PROP_FPS)
+# num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+# if num_frames < target_num_frames:
+#   raise RuntimeError(
+#       'The video is too short and has fewer frames than the target.')
+
+# if fps == -1:
+#   fps = int(target_num_frames / num_frames * input_fps)
+#   print(f"Auto-computed FPS = {fps}")
+
+# # @markdown Check this if you want to reprocess the frames.
+
+# filters = f"mpdecimate,setpts=N/FRAME_RATE/TB,scale=iw*{max_scale}:ih*{max_scale}"
+# tmp_rgb_raw_dir = str(rgb_raw_dir)
+# out_pattern = str(tmp_rgb_raw_dir / f'{args.test_vid_name}_%06d.png')
+# cmd(f"mkdir -p {tmp_rgb_raw_dir}")
+# cmd(f"ffmpeg -i {video_path} -r $fps -vf $filters {out_pattern}")
+# !mkdir -p "$rgb_raw_dir"
+# !rsync -av "$tmp_rgb_raw_dir/" "$rgb_raw_dir/"
+
 test_img_names += sorted(list(rgb_raw_dir.glob(f'{args.test_vid_name}_*.jpg')))
 
 
