@@ -56,49 +56,49 @@ print(f"""Directories configured:
 
 tmp_rgb_raw_dir = rgb_raw_dir
 
-# ############ process videos ############
+############ process videos ############
 
-# scene_vid_path = Path(args.raw_vid_path) / args.capture_name
-# train_img_names = []
-# test_img_names = []
+scene_vid_path = Path(args.raw_vid_path) / args.capture_name
+train_img_names = []
+test_img_names = []
 
-# train_vid_names = args.train_vid_names.strip().strip('[').strip(']').strip().split(',')
-# for train_name in train_vid_names:
-#   process_vid(str(scene_vid_path/f'{train_name}.MP4'), str(rgb_raw_dir), sampling=-1, iTarget=30)
-#   train_img_names += list(rgb_raw_dir.glob(f'{train_name}_*.jpg'))
-# train_img_names = sorted(train_img_names)
+train_vid_names = args.train_vid_names.strip().strip('[').strip(']').strip().split(',')
+for train_name in train_vid_names:
+  process_vid(str(scene_vid_path/f'{train_name}.MP4'), str(rgb_raw_dir), sampling=-1, iTarget=30)
+  train_img_names += list(rgb_raw_dir.glob(f'{train_name}_*.jpg'))
+train_img_names = sorted(train_img_names)
 
-# process_vid(str(scene_vid_path/f'{args.test_vid_name}.MP4'), str(rgb_raw_dir), sampling=-1, iTarget=args.n_test+30)
-# test_img_names += sorted(list(rgb_raw_dir.glob(f'{args.test_vid_name}_*.jpg')))
-
-
-# ############ write split ############
-# n_test = args.n_test
-# if len(test_img_names) < n_test:
-#   print('WARNING: test frames extracted is less than required number of test')
-#   n_test = len(test_img_names) - 10
-
-# left_strip = (len(test_img_names) - n_test) // 2
-
-# train_img_names += test_img_names[:left_strip] + test_img_names[left_strip + n_test:]
-# test_img_names = test_img_names[left_strip:left_strip + n_test]
+process_vid(str(scene_vid_path/f'{args.test_vid_name}.MP4'), str(rgb_raw_dir), sampling=-1, iTarget=args.n_test+30)
+test_img_names += sorted(list(rgb_raw_dir.glob(f'{args.test_vid_name}_*.jpg')))
 
 
-# get_stem = lambda p: p.stem
-# train_img_names = list(map(get_stem, train_img_names))
-# test_img_names = list(map(get_stem, test_img_names))
+############ write split ############
+n_test = args.n_test
+if len(test_img_names) < n_test:
+  print('WARNING: test frames extracted is less than required number of test')
+  n_test = len(test_img_names) - 10
 
-# split = {
-#     'n_imgs': len(train_img_names) + len(test_img_names),
-#     'n_train': len(train_img_names),
-#     'n_test': len(test_img_names),
-#     'train_imgs': train_img_names,
-#     'test_imgs': test_img_names,
-#     'id_is_train': [name in train_img_names for name in sorted(train_img_names + test_img_names)]
-# }
+left_strip = (len(test_img_names) - n_test) // 2
 
-# with (root_dir / 'split.json').open('w') as f:
-#     json.dump(split, f, indent=2)
+train_img_names += test_img_names[:left_strip] + test_img_names[left_strip + n_test:]
+test_img_names = test_img_names[left_strip:left_strip + n_test]
+
+
+get_stem = lambda p: p.stem
+train_img_names = list(map(get_stem, train_img_names))
+test_img_names = list(map(get_stem, test_img_names))
+
+split = {
+    'n_imgs': len(train_img_names) + len(test_img_names),
+    'n_train': len(train_img_names),
+    'n_test': len(test_img_names),
+    'train_imgs': train_img_names,
+    'test_imgs': test_img_names,
+    'id_is_train': [name in train_img_names for name in sorted(train_img_names + test_img_names)]
+}
+
+with (root_dir / 'split.json').open('w') as f:
+    json.dump(split, f, indent=2)
 
 
 
