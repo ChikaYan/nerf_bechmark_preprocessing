@@ -22,6 +22,7 @@ from colmap_read_model import *
 import shutil
 import cv2
 import pdb
+from PIL import Image
 
 def mkdir_s(dn):
     if not os.path.exists(dn):
@@ -35,56 +36,51 @@ def computeCropFactor(cx, cy, crop_center_x, crop_center_y):
   ll_x = crop_center_x - crop_w // 2
   ll_y = crop_center_y - crop_h // 2
 
-  # pdb.set_trace()
 
   
   return crop_h, crop_w, cx - ll_x, cy - ll_y
   
   
-def runCrop(imagePath, crop_center_x, crop_center_y):
-    image = cv2.imread(imagePath)
-    crop_h = 756
-    crop_w = 1008
+def runResizeCrop(imagePath, resize_scale=756./1080., crop_center_x=1344 // 2, crop_center_y=756 // 2, crop_h=756, crop_w=1008):
+    # image = cv2.imread(imagePath)
+    with Image.open(imagePath) as im:
 
-    hh = int(crop_center_y - (crop_h // 2))
-    ww = int(crop_center_x - (crop_w // 2))
-    # pdb.set_trace()
-    image = image[ hh:(hh + crop_h), ww:(ww + crop_w), :]
+      # resize
+      wh_resize = (int(im.width * resize_scale), int(im.height * resize_scale))
+      im_resized = im.resize(wh_resize, resample=Image.Resampling.LANCZOS)
+      # im_resized = im.resize((width, height))
 
-    folder = os.path.dirname(os.path.dirname(imagePath)) + '/images'
-    os.makedirs(folder, exist_ok=True)
+
+      hh = int(crop_center_y - (crop_h // 2))
+      ww = int(crop_center_x - (crop_w // 2))
+      # im_cropped = im_resized.crop([ hh:(hh + crop_h), ww:(ww + crop_w)])
+      im_cropped = im_resized.crop([ww ,hh, ww + crop_w, hh + crop_h])
+
+      folder = os.path.dirname(os.path.dirname(imagePath)) + '/images'
+      os.makedirs(folder, exist_ok=True)
+      
+
+      name = os.path.basename(imagePath)
+      name_woe  = os.path.splitext(name)[0]
+      ext  = os.path.splitext(name)[1]
+      name_new = name_woe + '_crop' + ext
+      fn = os.path.join(folder, name_new)
+
+      # pdb.set_trace()
+      
+      print(fn)
+      im_cropped.save(fn)
+      # cv2.imwrite(fn, image)
+
     
-    # name = os.path.splitext(imagePath)[0] + '_crop'
-    # ext  = os.path.splitext(imagePath)[1]
-    # cv2.imwrite(name + ext, image)
-
-    name = os.path.basename(imagePath)
-    name_woe  = os.path.splitext(name)[0]
-    ext  = os.path.splitext(name)[1]
-    name_new = name_woe + '_crop' + ext
-    fn = os.path.join(folder, name_new)
-
-    # import pdb
-    # pdb.set_trace()
+def computeScaleFactor(fx, fy, cx, cy, scale=756./1080.):
+    fx_s = fx * scale
+    fy_s = fy * scale
     
-    print(fn)
-    cv2.imwrite(fn, image)
+    cx_s = cx * scale
+    cy_s = cy * scale
 
-    
-def computeScaleFactor(h, w, fx, fy, cx, cy):
-    scale_h = 756
-    scale_w = 1008
-    
-    sx = scale_w / w
-    sy = scale_h / h
-
-    fx_s = fx * sx
-    fy_s = fy * sy
-    
-    cx_s = cx * sx
-    cy_s = cy * sy
-
-    return scale_h, scale_w, fx_s, fy_s, cx_s, cy_s
+    return fx_s, fy_s, cx_s, cy_s
     
 def runScale(imagePath, cx, cy):
     image = cv2.imread(imagePath)
@@ -184,13 +180,8 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
   print([h, w, fx, fy, cx, cy])
   print(cam.params)
 
-  h_s, w_s, fx_s, fy_s, cx_s, cy_s = computeScaleFactor(h, w, fx, fy, cx, cy)
-  hwf_cxcy_s = np.array([h_s, w_s, fx_s, fy_s, cx_s, cy_s]).reshape([6,1])
-
-  if crop_center_x is None:
-    crop_center_x = w // 2
-  if crop_center_y is None:
-    crop_center_y = h // 2
+  fx, fy, cx, cy = computeScaleFactor(fx, fy, cx, cy)
+  # hwf_cxcy_s = np.array([h_s, w_s, fx_s, fy_s, cx_s, cy_s]).reshape([6,1])
 
   with open(os.path.join(realdir, 'crop_center.txt'), 'w') as f:
     f.write(f'{crop_center_x}, {crop_center_y}')
@@ -198,6 +189,7 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
 
   h, w, cx, cy = computeCropFactor(cx, cy, crop_center_x, crop_center_y)
   hwf_cxcy = np.array([h, w, fx, fy, cx, cy]).reshape([6,1])
+
 
 
   imagesfile = os.path.join(realdir, 'sparse/0/images.bin')
@@ -221,7 +213,7 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
     
     image_path = os.path.join(realdir, 'images_raw', im.name)
     # pdb.set_trace()
-    runCrop(image_path, crop_center_x, crop_center_y)
+    runResizeCrop(image_path, crop_center_x=crop_center_x, crop_center_y=crop_center_y)
     # runScale(image_path, cx, cy)
     R = im.qvec2rotmat()
     t = im.tvec.reshape([3,1])
@@ -244,9 +236,9 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
   #poses = np.concatenate([poses[:, 1:2, :], poses[:, 0:1, :], -poses[:, 2:3, :], poses[:, 3:4, :], poses[:, 4:5, :]], 1)
   poses = np.concatenate([poses[:, 1:2, :], poses[:, 0:1, :], -poses[:, 2:3, :], poses[:, 3:4, :]], 1)
 
-  return poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s
+  return poses, pts3d, perm, hwf_cxcy
 
-def save_poses(basedir, poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s):
+def save_poses(basedir, poses, pts3d, perm, hwf_cxcy):
   pts_arr = []
   vis_arr = []
   for k in pts3d:
@@ -280,7 +272,7 @@ def save_poses(basedir, poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s):
 
   np.save(os.path.join(basedir, 'poses_bounds.npy'), save_arr)
   np.save(os.path.join(basedir, 'hwf_cxcy.npy'), hwf_cxcy)
-  np.save(os.path.join(basedir, 'hwf_cxcy_s.npy'), hwf_cxcy_s)
+  # np.save(os.path.join(basedir, 'hwf_cxcy_s.npy'), hwf_cxcy_s)
 
 def need_run_coolmap(basedir):
   files_needed = ['{}.bin'.format(f) for f in ['cameras', 'images', 'points3D']]
@@ -333,10 +325,10 @@ if __name__ == '__main__':
   parser.add_argument('--data_path', type=str)
   parser.add_argument('--crop_center_x',
                         type=int,
-                        default=None)
+                        default=672)
   parser.add_argument('--crop_center_y',
                         type=int,
-                        default=None)
+                        default=378)
 
   args = parser.parse_args()
 
@@ -345,9 +337,9 @@ if __name__ == '__main__':
     raise Exception("No colmap result found, please run colmap first")
 
   #post colmap
-  poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s = load_colmap_data(args.data_path, args.crop_center_x, args.crop_center_y)
+  poses, pts3d, perm, hwf_cxcy = load_colmap_data(args.data_path, args.crop_center_x, args.crop_center_y)
   print(hwf_cxcy)
-  save_poses(args.data_path, poses, pts3d, perm, hwf_cxcy, hwf_cxcy_s)
+  save_poses(args.data_path, poses, pts3d, perm, hwf_cxcy)
   print( 'Done with imgs2poses' )
 
 
