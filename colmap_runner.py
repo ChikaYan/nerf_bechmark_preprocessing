@@ -56,7 +56,7 @@ def runResizeCrop(imagePath, resize_scale=756./1080., crop_center_x=1344 // 2, c
       # im_cropped = im_resized.crop([ hh:(hh + crop_h), ww:(ww + crop_w)])
       im_cropped = im_resized.crop([ww ,hh, ww + crop_w, hh + crop_h])
 
-      folder = os.path.dirname(os.path.dirname(imagePath)) + '/images'
+      folder = os.path.dirname(os.path.dirname(os.path.dirname(imagePath))) + '/images'
       os.makedirs(folder, exist_ok=True)
       
 
@@ -169,7 +169,8 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
     https://github.com/Fyusion/LLFF/blob/master/llff/poses/pose_utils.py
 
   '''
-  camerasfile = os.path.join(realdir, 'sparse/0/cameras.bin')
+  colmap_path = os.path.join(realdir, 'dense/sparse/')
+  camerasfile = os.path.join(colmap_path, 'cameras.bin')
   camdata = read_cameras_binary(camerasfile)
 
   # cam = camdata[camdata.keys()[0]]
@@ -180,11 +181,22 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
   print([h, w, fx, fy, cx, cy])
   print(cam.params)
 
-  fx, fy, cx, cy = computeScaleFactor(fx, fy, cx, cy)
+  target_h, target_w = 756, 1008
+
+  resize_scale = max(target_w / w, target_h / h)
+
+  fx, fy, cx, cy = computeScaleFactor(fx, fy, cx, cy, scale=resize_scale)
   # hwf_cxcy_s = np.array([h_s, w_s, fx_s, fy_s, cx_s, cy_s]).reshape([6,1])
 
-  with open(os.path.join(realdir, 'crop_center.txt'), 'w') as f:
-    f.write(f'{crop_center_x}, {crop_center_y}')
+  rescale_h, rescale_w = int(h * resize_scale), int(w * resize_scale)
+
+  if crop_center_x is None:
+    crop_center_x = rescale_w // 2
+  if crop_center_y is None:
+    crop_center_y = rescale_h // 2
+
+  with open(os.path.join(realdir, 'rescale_crop_center.txt'), 'w') as f:
+    f.write(f'{resize_scale}, {crop_center_x}, {crop_center_y}')
 
 
   h, w, cx, cy = computeCropFactor(cx, cy, crop_center_x, crop_center_y)
@@ -192,7 +204,7 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
 
 
 
-  imagesfile = os.path.join(realdir, 'sparse/0/images.bin')
+  imagesfile = os.path.join(colmap_path, 'images.bin')
   imdata = read_images_binary(imagesfile)
 
   w2c_mats = []
@@ -211,9 +223,9 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
   for k in imdata:
     im = imdata[k]
     
-    image_path = os.path.join(realdir, 'images_raw', im.name)
+    image_path = os.path.join(realdir, 'dense/images', im.name)
     # pdb.set_trace()
-    runResizeCrop(image_path, crop_center_x=crop_center_x, crop_center_y=crop_center_y)
+    runResizeCrop(image_path, resize_scale=resize_scale, crop_center_x=crop_center_x, crop_center_y=crop_center_y)
     # runScale(image_path, cx, cy)
     R = im.qvec2rotmat()
     t = im.tvec.reshape([3,1])
@@ -229,7 +241,7 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
 
   #poses = np.concatenate([poses, np.tile(hwf[..., np.newaxis], [1,1,poses.shape[-1]])], 1)
 
-  points3dfile = os.path.join(realdir, 'sparse/0/points3D.bin')
+  points3dfile = os.path.join(colmap_path, 'points3D.bin')
   pts3d = read_points3d_binary(points3dfile)
 
   # must switch to [-u, r, -t] from [r, -u, t], NOT [r, u, -t]
@@ -325,10 +337,10 @@ if __name__ == '__main__':
   parser.add_argument('--data_path', type=str)
   parser.add_argument('--crop_center_x',
                         type=int,
-                        default=672)
+                        default=None)
   parser.add_argument('--crop_center_y',
                         type=int,
-                        default=378)
+                        default=None)
 
   args = parser.parse_args()
 
