@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import argparse
 import cv2
 from util.video import *
+import shutil
 
 def cmd(s):
   print(s)
@@ -31,6 +32,8 @@ args = parser.parse_args()
 root_dir = Path(args.data_path, args.capture_name)
 rgb_raw_dir = root_dir / 'images_raw'
 
+all_frames_dir = root_dir / 'all_frames'
+
 # Where to save the COLMAP outputs.
 colmap_dir = root_dir
 colmap_db_path = colmap_dir / 'database.db'
@@ -38,6 +41,7 @@ colmap_out_path = colmap_dir / 'sparse'
 
 colmap_out_path.mkdir(exist_ok=True, parents=True)
 rgb_raw_dir.mkdir(exist_ok=True, parents=True)
+all_frames_dir.mkdir(exist_ok=True, parents=True)
 
 print(f"""Directories configured:
   root_dir = {root_dir}
@@ -74,19 +78,30 @@ for img_name in imgs_names:
 
 # pdb.set_trace()
 
+
 for vid_name in vid_frames.keys():
-    cap = cv2.VideoCapture(str(scene_vid_path/f'{vid_name}.MP4'))
-    frame_ids = vid_frames[vid_name]
+   process_vid(str(scene_vid_path/f'{vid_name}.MP4'), str(all_frames_dir), sampling=1, iTarget=-1)
+
+
+for img_name in imgs_names:
+    shutil.copy(str(all_frames_dir / f'{img_name}.png'), str(rgb_raw_dir))
+
+
+# for vid_name in vid_frames.keys():
+#     cap = cv2.VideoCapture(str(scene_vid_path/f'{vid_name}.MP4'))
+#     frame_ids = vid_frames[vid_name]
     
-    for i in range(0, max(frame_ids) + 1):
-        _, frame = cap.read()
+#     for i in range(0, max(frame_ids) + 1):
+#         _, frame = cap.read()
 
-        if i in frame_ids:
-            # pdb.set_trace()
-            writeCV2(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) / 255.0, str(rgb_raw_dir / f"{vid_name}_{i:06d}.png"))
-            print(f'write: {str(rgb_raw_dir / f"{vid_name}_{i:06d}.png")}')
+#         if i in frame_ids:
+#             if frame is None:
+#                 pdb.set_trace()
+               
+#             writeCV2(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) / 255.0, str(rgb_raw_dir / f"{vid_name}_{i:06d}.png"))
+#             print(f'write: {str(rgb_raw_dir / f"{vid_name}_{i:06d}.png")}')
 
-    cap.release()
+#     cap.release()
 
 
     #     v = Video(str(scene_vid_path/f'{vid_name}.MP4'))
