@@ -29,7 +29,7 @@ def cleanSequence(video_obj, shift_threshold = 8, bBGR = False, bSave = True, fo
     lst.append(j)
     
     if bSave:
-        writeCV2(img / 255.0, folder_out + '/' + name_base + '_' + format(j,'06d') + '.jpg')
+        writeCV2(img / 255.0, folder_out + '/' + name_base + '_' + format(j,'06d') + '.png')
 
     if shift_threshold < 0:
         shape_max = np.max(img.shape)
@@ -64,7 +64,7 @@ def cleanSequence(video_obj, shift_threshold = 8, bBGR = False, bSave = True, fo
                     removed_str = ' kept '
                     
                     if bSave:
-                        writeCV2(img_n / 255.0, folder_out + '/' + name_base + '_' + format(j,'06d') + '.jpg')
+                        writeCV2(img_n / 255.0, folder_out + '/' + name_base + '_' + format(j,'06d') + '.png')
 
             print('Ref: ' + str(j) + ' Cur: ' + str(k) + removed_str + " SSIM: " + str(ssim) + tmp)
 
@@ -113,7 +113,7 @@ def processOneVideo(name_video, folder_out = [], sampling = -1, iTarget = -1):
                 j = lst[i]
                 success, frame, j_k = v.getNextFrame(j, True)
                 if success:
-                    writeCV2(frame / 255.0, folder_out + '/' + name_base + '_' + format(j,'06d') + '.jpg')
+                    writeCV2(frame / 255.0, folder_out + '/' + name_base + '_' + format(j,'06d') + '.png')
                     n_frame += 1
     else:
         n = v.getNumFrames()
@@ -134,7 +134,7 @@ def processOneVideo(name_video, folder_out = [], sampling = -1, iTarget = -1):
                     frame = np.clip(frame, 0.0, 1.0)
         
             if success:
-                writeCV2(frame, folder_out + '/' + name_base + '_' + format(i,'06d') + '.jpg')
+                writeCV2(frame, folder_out + '/' + name_base + '_' + format(i,'06d') + '.png')
                 n_frame += 1
         
     v.release()

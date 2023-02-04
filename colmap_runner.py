@@ -41,7 +41,15 @@ def computeCropFactor(cx, cy, crop_center_x, crop_center_y):
   return crop_h, crop_w, cx - ll_x, cy - ll_y
   
   
-def runResizeCrop(imagePath, resize_scale=756./1080., crop_center_x=1344 // 2, crop_center_y=756 // 2, crop_h=756, crop_w=1008):
+def runResizeCrop(
+  imagePath, 
+  out_dir,
+  resize_scale=756./1080., 
+  crop_center_x=1344 // 2, 
+  crop_center_y=756 // 2, 
+  crop_h=756, 
+  crop_w=1008
+):
     # image = cv2.imread(imagePath)
     with Image.open(imagePath) as im:
 
@@ -56,15 +64,15 @@ def runResizeCrop(imagePath, resize_scale=756./1080., crop_center_x=1344 // 2, c
       # im_cropped = im_resized.crop([ hh:(hh + crop_h), ww:(ww + crop_w)])
       im_cropped = im_resized.crop([ww ,hh, ww + crop_w, hh + crop_h])
 
-      folder = os.path.dirname(os.path.dirname(os.path.dirname(imagePath))) + '/images'
-      os.makedirs(folder, exist_ok=True)
+      # out_dir = os.path.dirname(os.path.dirname(os.path.dirname(imagePath))) + '/images'
+      os.makedirs(out_dir, exist_ok=True)
       
 
       name = os.path.basename(imagePath)
       name_woe  = os.path.splitext(name)[0]
       ext  = os.path.splitext(name)[1]
       name_new = name_woe + '_crop' + ext
-      fn = os.path.join(folder, name_new)
+      fn = os.path.join(out_dir, name_new)
 
       # pdb.set_trace()
       
@@ -170,6 +178,7 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
 
   '''
   colmap_path = os.path.join(realdir, 'dense/sparse/')
+  # colmap_path = os.path.join(realdir, 'sparse/0/')
   camerasfile = os.path.join(colmap_path, 'cameras.bin')
   camdata = read_cameras_binary(camerasfile)
 
@@ -224,8 +233,12 @@ def load_colmap_data(realdir, crop_center_x=None, crop_center_y=None):
     im = imdata[k]
     
     image_path = os.path.join(realdir, 'dense/images', im.name)
+    out_dir = os.path.dirname(os.path.dirname(os.path.dirname(image_path))) + '/images'
+    # image_path = os.path.join(realdir, 'images_raw', im.name)
+    # out_dir = os.path.dirname(os.path.dirname(image_path)) + '/images'
     # pdb.set_trace()
-    runResizeCrop(image_path, resize_scale=resize_scale, crop_center_x=crop_center_x, crop_center_y=crop_center_y)
+    runResizeCrop(image_path, out_dir,
+      resize_scale=resize_scale, crop_center_x=crop_center_x, crop_center_y=crop_center_y)
     # runScale(image_path, cx, cy)
     R = im.qvec2rotmat()
     t = im.tvec.reshape([3,1])
